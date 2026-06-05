@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/character_model.dart';
 import '../../../core/providers/character_provider.dart';
+import '../../../core/providers/todo_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
 class BattleScreen extends StatefulWidget {
@@ -75,7 +76,7 @@ class _BattleScreenState extends State<BattleScreen>
   @override
   Widget build(BuildContext context) {
     if (_selectedEnemy == null) return _buildEnemySelect();
-    if (_result == null) return _buildBattleArena();
+    if (_isPlaying || _result == null) return _buildBattleArena();
     return _buildResult();
   }
 
@@ -223,6 +224,9 @@ class _BattleScreenState extends State<BattleScreen>
     _result = result;
     _eventIndex = 0;
     _isPlaying = true;
+    // Apply result immediately — do NOT wait for animation to finish
+    // because user can press back before events play out (mounted = false)
+    _applyResult();
     _playNextEvent();
   }
 
@@ -230,7 +234,6 @@ class _BattleScreenState extends State<BattleScreen>
     if (!mounted || !_isPlaying) return;
     if (_eventIndex >= (_result?.events.length ?? 0)) {
       setState(() { _isPlaying = false; });
-      await _applyResult();
       return;
     }
 
@@ -258,8 +261,10 @@ class _BattleScreenState extends State<BattleScreen>
   }
 
   Future<void> _applyResult() async {
-    if (_result == null) return;
+    if (_result == null || !mounted) return;
     await context.read<CharacterProvider>().applyBattleResult(_result!);
+    if (!mounted) return;
+    await context.read<TodoProvider>().addBattleXp(_result!.xpGained);
   }
 
   Widget _buildBattleArena() {

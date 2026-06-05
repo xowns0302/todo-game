@@ -75,18 +75,28 @@ class CharacterProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Apply battle result
+  // Apply battle result (HP/gold/wins + daily defeat tracking)
   Future<void> applyBattleResult(BattleResult result) async {
     if (_character == null) return;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
     final newHp = (_character!.hp - result.hpLost).clamp(0, _character!.maxHp);
+
+    // 날짜가 바뀌면 처치 목록 초기화
+    final prevIds = _character!.dailyBattleDate == today
+        ? List<String>.from(_character!.defeatedEnemyIds)
+        : <String>[];
+    if (result.playerWon && !prevIds.contains(result.enemyId)) {
+      prevIds.add(result.enemyId);
+    }
+
     var updated = _character!.copyWith(
       currentHp: newHp,
       gold: _character!.gold + result.goldGained,
       totalWins: result.playerWon ? _character!.totalWins + 1 : null,
       totalLosses: result.playerWon ? null : _character!.totalLosses + 1,
-      lastBossDate: result.playerWon && result.isBoss
-          ? DateTime.now().toIso8601String().substring(0, 10)
-          : null,
+      defeatedEnemyIds: prevIds,
+      dailyBattleDate: today,
+      lastBossDate: (result.playerWon && result.isBoss) ? today : null,
     );
     if (result.droppedItem != null) {
       updated = updated.copyWith(
@@ -146,6 +156,39 @@ class CharacterProvider extends ChangeNotifier {
       case EquipmentRarity.rare: return 30;
       default: return 10;
     }
+  }
+
+  // Check if today's daily quest clear reward has been claimed
+  bool isDailyRewardClaimed() {
+    if (_character == null) return false;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return _character!.lastDailyClearDate == today;
+  }
+
+  // Claim the daily quest all-clear bonus gold
+  Future<void> claimDailyReward({required int questCount}) async {
+    if (_character == null) return;
+    final bonusGold = questCount * 10;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    _character = _character!.copyWith(
+      gold: _character!.gold + bonusGold,
+      lastDailyClearDate: today,
+    );
+    await _save();
+    notifyListeners();
+  }
+
+  // Purchase an item from the shop
+  Future<bool> purchaseItem(EquipmentItem item, int price) async {
+    if (_character == null) return false;
+    if (_character!.gold < price) return false;
+    _character = _character!.copyWith(
+      gold: _character!.gold - price,
+      inventory: [..._character!.inventory, item],
+    );
+    await _save();
+    notifyListeners();
+    return true;
   }
 
   // Restore HP with gold (shop)

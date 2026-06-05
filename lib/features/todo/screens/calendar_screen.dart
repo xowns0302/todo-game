@@ -5,6 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/todo_provider.dart';
 import '../widgets/todo_item_widget.dart';
 import '../widgets/add_edit_todo_sheet.dart';
+import '../widgets/nl_todo_sheet.dart';
+import '../../lms/lms_connect_sheet.dart';
 import 'todo_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -38,7 +40,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Color _cellColor(double ratio, int count) {
     if (count == 0) return Colors.transparent;
-    if (ratio <= 0) return const Color(0xFFFFE4E4); // has todos but none done
+    if (ratio <= 0) return const Color(0x1AEF4444); // has todos but none done — transparent red
     if (ratio < 0.5) return const Color(0xFFFEF3C7); // <50%
     if (ratio < 1.0) return const Color(0xFFD1FAE5); // 50-99%
     // All done - intensity based on count
@@ -67,18 +69,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               _buildHeader(),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _buildCalendar(calDays, ratioMap, provider),
-                      const SizedBox(height: 16),
-                      _buildLegend(),
-                      const SizedBox(height: 16),
-                      if (_selectedDay != null)
-                        _buildDayDetail(_selectedDay!, provider),
-                    ],
-                  ),
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+                      child: Column(
+                        children: [
+                          _buildCalendar(calDays, ratioMap, provider),
+                          const SizedBox(height: 16),
+                          _buildLegend(),
+                          const SizedBox(height: 16),
+                          if (_selectedDay != null)
+                            _buildDayDetail(_selectedDay!, provider),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      right: 20,
+                      bottom: 24,
+                      child: _buildFabs(context),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -90,48 +101,65 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildHeader() {
     return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
       decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
+        color: AppColors.card,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 16,
-        left: 16,
-        right: 16,
-        bottom: 20,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text('캘린더',
-              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                onPressed: () => setState(() {
-                  _month = DateTime(_month.year, _month.month - 1);
-                  _selectedDay = null;
-                }),
-                icon: const Icon(Icons.chevron_left, color: Colors.white),
+          // 월 네비게이션
+          IconButton(
+            onPressed: () => setState(() {
+              _month = DateTime(_month.year, _month.month - 1);
+              _selectedDay = null;
+            }),
+            icon: const Icon(Icons.chevron_left, color: AppColors.mutedForeground, size: 22),
+          ),
+          Text(
+            DateFormat('yyyy년 M월', 'ko').format(_month),
+            style: const TextStyle(
+                color: AppColors.foreground,
+                fontSize: 16,
+                fontWeight: FontWeight.bold),
+          ),
+          IconButton(
+            onPressed: () => setState(() {
+              _month = DateTime(_month.year, _month.month + 1);
+              _selectedDay = null;
+            }),
+            icon: const Icon(Icons.chevron_right, color: AppColors.mutedForeground, size: 22),
+          ),
+          const Spacer(),
+          // LMS 버튼 (컴팩트)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const LmsConnectSheet(),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 1.5),
               ),
-              Text(
-                DateFormat('yyyy년 M월', 'ko').format(_month),
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('🎓', style: TextStyle(fontSize: 13)),
+                  SizedBox(width: 4),
+                  Text('LMS',
+                      style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                ],
               ),
-              IconButton(
-                onPressed: () => setState(() {
-                  _month = DateTime(_month.year, _month.month + 1);
-                  _selectedDay = null;
-                }),
-                icon: const Icon(Icons.chevron_right, color: Colors.white),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -191,6 +219,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       _selectedDay!.day == day.day;
                   final today = _isToday(day);
                   final future = _isFuture(day);
+                  final isIncomplete = !future && count > 0 && ratio != null && ratio <= 0;
 
                   return Expanded(
                     child: GestureDetector(
@@ -210,7 +239,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               ? Border.all(color: AppColors.primary, width: 2)
                               : today
                                   ? Border.all(color: AppColors.primary.withOpacity(0.5), width: 1.5)
-                                  : null,
+                                  : isIncomplete
+                                      ? Border.all(color: const Color(0xFFEF4444), width: 1.5)
+                                      : null,
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -281,6 +312,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(fontSize: 11, color: AppColors.mutedForeground)),
+      ],
+    );
+  }
+
+  Widget _buildFabs(BuildContext context) {
+    final selectedDate = _selectedDay ?? DateTime.now();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FloatingActionButton.extended(
+          heroTag: 'ai_fab',
+          onPressed: () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const NlTodoSheet(),
+          ),
+          icon: const Text('✨', style: TextStyle(fontSize: 16)),
+          label: const Text('AI 추가', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFF8B5CF6),
+          foregroundColor: Colors.white,
+          elevation: 4,
+        ),
+        const SizedBox(height: 12),
+        FloatingActionButton(
+          heroTag: 'add_fab',
+          onPressed: () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => AddEditTodoSheet(selectedDate: selectedDate),
+          ),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          child: const Icon(Icons.add, size: 28),
+        ),
       ],
     );
   }

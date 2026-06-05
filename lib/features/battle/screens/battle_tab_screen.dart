@@ -25,9 +25,7 @@ class BattleTabScreen extends StatelessWidget {
     final ch = charProvider.character!;
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: _BattleEnemySelectBody(character: ch),
-      ),
+      body: _BattleEnemySelectBody(character: ch),
     );
   }
 }
@@ -79,15 +77,6 @@ class _BattleEnemySelectBody extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('❤️ ${ch.hp}/${ch.maxHp}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              Text('💰 ${ch.gold}G',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFFF59E0B))),
-            ],
-          ),
         ],
       ),
     );
@@ -101,66 +90,86 @@ class _BattleEnemySelectBody extends StatelessWidget {
   }
 
   Widget _enemyCard(BuildContext context, Enemy enemy, {required bool isBoss}) {
-    final borderColor = isBoss ? const Color(0xFFEF4444) : AppColors.border;
+    final defeated = character.isEnemyDefeatedToday(enemy.id);
+    final borderColor = defeated
+        ? AppColors.border.withOpacity(0.3)
+        : isBoss
+            ? const Color(0xFFEF4444)
+            : AppColors.border;
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BattleScreen(character: character, initialEnemy: enemy),
+      behavior: HitTestBehavior.opaque,
+      onTap: defeated
+          ? null
+          : () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BattleScreen(character: character, initialEnemy: enemy),
+                ),
+              ),
+      child: Opacity(
+        opacity: defeated ? 0.45 : 1.0,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor, width: isBoss ? 2 : 1),
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: isBoss ? 2 : 1),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56, height: 56,
-              decoration: BoxDecoration(
-                color: isBoss
-                    ? const Color(0xFFEF4444).withOpacity(0.1)
-                    : AppColors.background,
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(
+                  color: isBoss
+                      ? const Color(0xFFEF4444).withOpacity(0.1)
+                      : AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(child: Text(enemy.emoji, style: const TextStyle(fontSize: 28))),
               ),
-              child: Center(child: Text(enemy.emoji, style: const TextStyle(fontSize: 28))),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(enemy.name,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: isBoss ? const Color(0xFFEF4444) : AppColors.foreground)),
-                  const SizedBox(height: 4),
-                  Text('Lv.${enemy.level}  ❤️ ${enemy.maxHp}  ⚔️ ${enemy.attack}  🛡️ ${enemy.defense}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.mutedForeground)),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(enemy.name,
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: isBoss ? const Color(0xFFEF4444) : AppColors.foreground)),
+                    const SizedBox(height: 4),
+                    Text('Lv.${enemy.level}  ❤️ ${enemy.maxHp}  ⚔️ ${enemy.attack}  🛡️ ${enemy.defense}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.mutedForeground)),
+                  ],
+                ),
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('💰 ${enemy.goldReward}G',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
-                Text('✨ ${enemy.xpReward}XP',
-                    style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
-                Text(isBoss ? '드롭 80%' : '드롭 30%',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isBoss ? const Color(0xFFEF4444) : AppColors.mutedForeground)),
-              ],
-            ),
-          ],
+              defeated
+                  ? const Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('✅', style: TextStyle(fontSize: 22)),
+                        SizedBox(height: 2),
+                        Text('내일 도전',
+                            style: TextStyle(fontSize: 11, color: AppColors.mutedForeground)),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('💰 ${enemy.goldReward}G',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
+                        Text('✨ ${enemy.xpReward}XP',
+                            style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                        Text(isBoss ? '드롭 80%' : '드롭 30%',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: isBoss ? const Color(0xFFEF4444) : AppColors.mutedForeground)),
+                      ],
+                    ),
+            ],
+          ),
         ),
       ),
     );

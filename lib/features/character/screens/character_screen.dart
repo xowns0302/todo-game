@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/character_model.dart';
+import '../../../core/models/todo_model.dart';
 import '../../../core/providers/character_provider.dart';
 import '../../../core/providers/todo_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -47,7 +48,22 @@ class _CharacterScreenState extends State<CharacterScreen> {
     final todoProvider = context.watch<TodoProvider>();
 
     if (!charProvider.isLoaded) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: Color(0xFF1E40AF),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image(
+                image: AssetImage('assets/images/loading_image.png'),
+                width: 240,
+              ),
+              SizedBox(height: 32),
+              CircularProgressIndicator(color: Colors.white),
+            ],
+          ),
+        ),
+      );
     }
 
     if (!charProvider.hasCharacter) {
@@ -62,6 +78,7 @@ class _CharacterScreenState extends State<CharacterScreen> {
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(ch, todoProvider)),
             SliverToBoxAdapter(child: _buildHpBar(ch)),
+            SliverToBoxAdapter(child: _buildTodayQuests(todoProvider)),
             SliverToBoxAdapter(child: _buildStats(ch)),
             SliverToBoxAdapter(child: _buildEquipment(ch, charProvider)),
             SliverToBoxAdapter(child: _buildInventory(ch, charProvider)),
@@ -197,6 +214,145 @@ class _CharacterScreenState extends State<CharacterScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodayQuests(TodoProvider todoProvider) {
+    final today = DateTime.now();
+    final todos = todoProvider.getTodosForDate(today);
+    final done = todos.where((t) => t.completed).length;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD97706).withOpacity(0.35)),
+        boxShadow: [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.08), blurRadius: 8)],
+      ),
+      child: Column(
+        children: [
+          // 헤더
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFDE68A),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('📜', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                const Text('오늘의 퀘스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD97706).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('$done/${todos.length}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+                ),
+              ],
+            ),
+          ),
+          if (todos.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('오늘의 퀘스트가 없습니다\n할 일 탭에서 추가해보세요!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF92400E), fontSize: 13)),
+            )
+          else
+            ...todos.asMap().entries.map((e) => _buildQuestItem(e.value, e.key == todos.length - 1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestItem(Todo todo, bool isLast) {
+    final xp = todo.completionXp;
+    final gold = todo.difficulty == 'HARD' ? 20 : todo.difficulty == 'EASY' ? 5 : 10;
+    final stars = todo.difficulty == 'HARD' ? 3 : todo.difficulty == 'EASY' ? 1 : 2;
+    final textColor = todo.completed
+        ? const Color(0xFF92400E).withOpacity(0.4)
+        : const Color(0xFF78350F);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(bottom: BorderSide(color: const Color(0xFFD97706).withOpacity(0.2))),
+        borderRadius: isLast ? const BorderRadius.vertical(bottom: Radius.circular(16)) : null,
+      ),
+      child: Row(
+        children: [
+          // 완료 체크박스
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 22, height: 22,
+            decoration: BoxDecoration(
+              color: todo.completed ? const Color(0xFF22C55E) : Colors.transparent,
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: todo.completed ? const Color(0xFF22C55E) : const Color(0xFF92400E).withOpacity(0.4),
+                width: 1.5,
+              ),
+            ),
+            child: todo.completed
+                ? const Icon(Icons.check, color: Colors.white, size: 14)
+                : null,
+          ),
+          const SizedBox(width: 10),
+          // 퀘스트 내용
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  todo.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                    decoration: todo.completed ? TextDecoration.lineThrough : null,
+                    decorationColor: textColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    // 별점 (난이도)
+                    ...List.generate(3, (i) => Icon(
+                      Icons.star,
+                      size: 11,
+                      color: i < stars
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFFD97706).withOpacity(0.25),
+                    )),
+                    const SizedBox(width: 6),
+                    Text('XP $xp',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF6D28D9), fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 6),
+                    Text('🪙 ${gold}G',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFFD97706), fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // 완료 아이콘
+          if (todo.completed)
+            const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 20),
         ],
       ),
     );

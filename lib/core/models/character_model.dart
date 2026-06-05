@@ -86,7 +86,10 @@ class CharacterData {
   final String? equippedAccessoryId;
   final int totalWins;
   final int totalLosses;
-  final String? lastBossDate; // 'yyyy-MM-dd'
+  final String? lastBossDate;           // 'yyyy-MM-dd'
+  final String? lastDailyClearDate;     // 'yyyy-MM-dd'
+  final String? dailyBattleDate;        // 'yyyy-MM-dd' — 일일 전투 추적 기준일
+  final List<String> defeatedEnemyIds;  // 오늘 처치한 적 ID 목록
 
   const CharacterData({
     required this.type,
@@ -105,7 +108,16 @@ class CharacterData {
     this.totalWins = 0,
     this.totalLosses = 0,
     this.lastBossDate,
+    this.lastDailyClearDate,
+    this.dailyBattleDate,
+    this.defeatedEnemyIds = const [],
   });
+
+  bool isEnemyDefeatedToday(String enemyId) {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (dailyBattleDate != today) return false;
+    return defeatedEnemyIds.contains(enemyId);
+  }
 
   int get maxHp => 50 + (statVit * 10) + (level * 5) + _equippedHpBonus;
 
@@ -186,6 +198,9 @@ class CharacterData {
     int? totalWins,
     int? totalLosses,
     String? lastBossDate,
+    String? lastDailyClearDate,
+    String? dailyBattleDate,
+    List<String>? defeatedEnemyIds,
   }) {
     return CharacterData(
       type: type,
@@ -204,6 +219,9 @@ class CharacterData {
       totalWins: totalWins ?? this.totalWins,
       totalLosses: totalLosses ?? this.totalLosses,
       lastBossDate: lastBossDate ?? this.lastBossDate,
+      lastDailyClearDate: lastDailyClearDate ?? this.lastDailyClearDate,
+      dailyBattleDate: dailyBattleDate ?? this.dailyBattleDate,
+      defeatedEnemyIds: defeatedEnemyIds ?? this.defeatedEnemyIds,
     );
   }
 
@@ -224,6 +242,9 @@ class CharacterData {
         'totalWins': totalWins,
         'totalLosses': totalLosses,
         'lastBossDate': lastBossDate,
+        'lastDailyClearDate': lastDailyClearDate,
+        'dailyBattleDate': dailyBattleDate,
+        'defeatedEnemyIds': defeatedEnemyIds,
       };
 
   factory CharacterData.fromJson(Map<String, dynamic> j) => CharacterData(
@@ -245,6 +266,11 @@ class CharacterData {
         totalWins: j['totalWins'] as int? ?? 0,
         totalLosses: j['totalLosses'] as int? ?? 0,
         lastBossDate: j['lastBossDate'] as String?,
+        lastDailyClearDate: j['lastDailyClearDate'] as String?,
+        dailyBattleDate: j['dailyBattleDate'] as String?,
+        defeatedEnemyIds: (j['defeatedEnemyIds'] as List<dynamic>? ?? [])
+            .map((e) => e as String)
+            .toList(),
       );
 
   // Starting stats per class
@@ -263,6 +289,7 @@ class CharacterData {
 // ───────────────── Enemy ─────────────────
 
 class Enemy {
+  final String id;
   final String name;
   final String emoji;
   final int level;
@@ -276,6 +303,7 @@ class Enemy {
   final bool isBoss;
 
   const Enemy({
+    required this.id,
     required this.name,
     required this.emoji,
     required this.level,
@@ -292,6 +320,7 @@ class Enemy {
   static Enemy bossForLevel(int playerLevel) {
     final lvl = (playerLevel * 1.5).ceil();
     return Enemy(
+      id: 'boss',
       name: '일일 보스',
       emoji: lvl >= 15 ? '🐉' : lvl >= 8 ? '👹' : '💀',
       level: lvl,
@@ -309,27 +338,27 @@ class Enemy {
   static List<Enemy> stageEnemies(int playerLevel) {
     if (playerLevel <= 3) {
       return [
-        Enemy(name: '슬라임', emoji: '🟢', level: 1, maxHp: 30, attack: 5, defense: 0, speed: 3, xpReward: 10, goldReward: 5, possibleDrops: _randomDrops(EquipmentRarity.common)),
-        Enemy(name: '버섯괴물', emoji: '🍄', level: 2, maxHp: 45, attack: 7, defense: 1, speed: 2, xpReward: 15, goldReward: 7, possibleDrops: _randomDrops(EquipmentRarity.common)),
-        Enemy(name: '박쥐', emoji: '🦇', level: 3, maxHp: 35, attack: 9, defense: 0, speed: 6, xpReward: 18, goldReward: 9, possibleDrops: _randomDrops(EquipmentRarity.common)),
+        Enemy(id: 'stage_0', name: '슬라임', emoji: '🟢', level: 1, maxHp: 30, attack: 5, defense: 0, speed: 3, xpReward: 10, goldReward: 5, possibleDrops: _randomDrops(EquipmentRarity.common)),
+        Enemy(id: 'stage_1', name: '버섯괴물', emoji: '🍄', level: 2, maxHp: 45, attack: 7, defense: 1, speed: 2, xpReward: 15, goldReward: 7, possibleDrops: _randomDrops(EquipmentRarity.common)),
+        Enemy(id: 'stage_2', name: '박쥐', emoji: '🦇', level: 3, maxHp: 35, attack: 9, defense: 0, speed: 6, xpReward: 18, goldReward: 9, possibleDrops: _randomDrops(EquipmentRarity.common)),
       ];
     } else if (playerLevel <= 8) {
       return [
-        Enemy(name: '고블린', emoji: '👺', level: 5, maxHp: 80, attack: 15, defense: 5, speed: 5, xpReward: 30, goldReward: 12, possibleDrops: _randomDrops(EquipmentRarity.common)),
-        Enemy(name: '늑대', emoji: '🐺', level: 6, maxHp: 70, attack: 18, defense: 3, speed: 8, xpReward: 35, goldReward: 14, possibleDrops: _randomDrops(EquipmentRarity.rare)),
-        Enemy(name: '해골 병사', emoji: '💀', level: 8, maxHp: 100, attack: 20, defense: 8, speed: 4, xpReward: 40, goldReward: 18, possibleDrops: _randomDrops(EquipmentRarity.rare)),
+        Enemy(id: 'stage_0', name: '고블린', emoji: '👺', level: 5, maxHp: 80, attack: 15, defense: 5, speed: 5, xpReward: 30, goldReward: 12, possibleDrops: _randomDrops(EquipmentRarity.common)),
+        Enemy(id: 'stage_1', name: '늑대', emoji: '🐺', level: 6, maxHp: 70, attack: 18, defense: 3, speed: 8, xpReward: 35, goldReward: 14, possibleDrops: _randomDrops(EquipmentRarity.rare)),
+        Enemy(id: 'stage_2', name: '해골 병사', emoji: '💀', level: 8, maxHp: 100, attack: 20, defense: 8, speed: 4, xpReward: 40, goldReward: 18, possibleDrops: _randomDrops(EquipmentRarity.rare)),
       ];
     } else if (playerLevel <= 15) {
       return [
-        Enemy(name: '오크', emoji: '👹', level: 10, maxHp: 200, attack: 35, defense: 15, speed: 5, xpReward: 60, goldReward: 25, possibleDrops: _randomDrops(EquipmentRarity.rare)),
-        Enemy(name: '다크 엘프', emoji: '🧝', level: 12, maxHp: 170, attack: 40, defense: 10, speed: 12, xpReward: 70, goldReward: 30, possibleDrops: _randomDrops(EquipmentRarity.epic)),
-        Enemy(name: '어둠의 기사', emoji: '🏴', level: 15, maxHp: 300, attack: 50, defense: 18, speed: 6, xpReward: 80, goldReward: 35, possibleDrops: _randomDrops(EquipmentRarity.epic)),
+        Enemy(id: 'stage_0', name: '오크', emoji: '👹', level: 10, maxHp: 200, attack: 35, defense: 15, speed: 5, xpReward: 60, goldReward: 25, possibleDrops: _randomDrops(EquipmentRarity.rare)),
+        Enemy(id: 'stage_1', name: '다크 엘프', emoji: '🧝', level: 12, maxHp: 170, attack: 40, defense: 10, speed: 12, xpReward: 70, goldReward: 30, possibleDrops: _randomDrops(EquipmentRarity.epic)),
+        Enemy(id: 'stage_2', name: '어둠의 기사', emoji: '🏴', level: 15, maxHp: 300, attack: 50, defense: 18, speed: 6, xpReward: 80, goldReward: 35, possibleDrops: _randomDrops(EquipmentRarity.epic)),
       ];
     } else {
       return [
-        Enemy(name: '원소 정령', emoji: '🌪️', level: 18, maxHp: 400, attack: 60, defense: 20, speed: 10, xpReward: 100, goldReward: 50, possibleDrops: _randomDrops(EquipmentRarity.epic)),
-        Enemy(name: '악마 군주', emoji: '😈', level: 22, maxHp: 500, attack: 75, defense: 25, speed: 8, xpReward: 130, goldReward: 65, possibleDrops: _randomDrops(EquipmentRarity.legendary)),
-        Enemy(name: '불사 드래곤', emoji: '🔥', level: 25, maxHp: 700, attack: 90, defense: 30, speed: 7, xpReward: 160, goldReward: 80, possibleDrops: _randomDrops(EquipmentRarity.legendary)),
+        Enemy(id: 'stage_0', name: '원소 정령', emoji: '🌪️', level: 18, maxHp: 400, attack: 60, defense: 20, speed: 10, xpReward: 100, goldReward: 50, possibleDrops: _randomDrops(EquipmentRarity.epic)),
+        Enemy(id: 'stage_1', name: '악마 군주', emoji: '😈', level: 22, maxHp: 500, attack: 75, defense: 25, speed: 8, xpReward: 130, goldReward: 65, possibleDrops: _randomDrops(EquipmentRarity.legendary)),
+        Enemy(id: 'stage_2', name: '불사 드래곤', emoji: '🔥', level: 25, maxHp: 700, attack: 90, defense: 30, speed: 7, xpReward: 160, goldReward: 80, possibleDrops: _randomDrops(EquipmentRarity.legendary)),
       ];
     }
   }
@@ -428,6 +457,7 @@ class BattleEvent {
 class BattleResult {
   final bool playerWon;
   final bool isBoss;
+  final String enemyId;
   final List<BattleEvent> events;
   final int xpGained;
   final int goldGained;
@@ -437,6 +467,7 @@ class BattleResult {
   const BattleResult({
     required this.playerWon,
     required this.isBoss,
+    required this.enemyId,
     required this.events,
     required this.xpGained,
     required this.goldGained,
@@ -539,6 +570,7 @@ class BattleEngine {
     return BattleResult(
       playerWon: won,
       isBoss: enemy.isBoss,
+      enemyId: enemy.id,
       events: events,
       xpGained: won ? enemy.xpReward : (enemy.xpReward ~/ 4),
       goldGained: won ? enemy.goldReward : 0,

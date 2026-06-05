@@ -227,5 +227,20 @@ class TodoProvider extends ChangeNotifier {
   int get hardCompleted =>
       _todos.where((t) => t.completed && t.difficulty == 'HARD').length;
 
+  // Grant XP from battle result
+  Future<void> addBattleXp(int xp) async {
+    _totalXp += xp;
+    await StorageService.saveTotalXp(_totalXp);
+    notifyListeners();
+  }
+
+  // Grant bonus XP from daily quest all-clear reward
+  Future<void> addDailyBonusXp(int questCount) async {
+    final bonusXp = questCount * 5;
+    _totalXp += bonusXp;
+    await StorageService.saveTotalXp(_totalXp);
+    notifyListeners();
+  }
+
   Future<void> _save() => StorageService.saveTodos(_todos);
 }
